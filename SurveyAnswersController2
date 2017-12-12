@@ -1,0 +1,338 @@
+public class SurveyAnswersController2
+{
+    private static String queryId = ApexPages.currentPage().getParameters().get('id');
+    private static Survey2__c currentSurvey = Database.query('select Id, CreatedBy.Id, CreatedBy.Name, CreatedDate from Survey2__c where Id = :queryId');
+
+    private String queryString;
+    private static List<SurveyTaken2__c> surveyTakens;
+    
+    public SurveyAnswersController2(String s) { }
+    public SurveyAnswersController2()
+    {  
+        ArrowDirection = 'arrowup';
+        Survey = currentSurvey;
+        querySurveyQuestions();
+		doRenderProcess();
+        TotalTakenNumber = LeadAndAnswers.size();
+    }
+    
+    public String Title { get; set; }
+    public Survey2__c Survey { get; set; }
+    public List<SurveyQuestion__c> SurveyQuestions { get; set; }
+    public List<WrapperLeadAndAnswers> LeadAndAnswers {get; set;}
+    public static List<String> FieldsShow { get; set; }
+    public static String SortField { get; set; }
+    public static Boolean IsAsc;  
+    public String ArrowDirection { get; set; }
+    public static Integer QuestionNumber { get; set; }
+    public static String DateMark {  get; set;}
+    public static String SurveyNumber { get; set; }
+    public String TokenId { get; set; }
+    public String WeChatFollowerId { get; set; }
+    public static String WeChatFollowerColumn { get; set; }
+    public Integer TotalTakenNumber { get; set; }
+    
+    public PageReference createExcelForm()
+    {	
+        PageReference page = new PageReference('/apex/SurveyAnswers2Excel');
+        page.setRedirect(true);
+        return page;
+    }
+    
+    public PageReference jumpToTakenOrWechatFollowerPage()
+    {	
+        String idParam = '';
+        if(String.isNotBlank(TokenId))
+        {
+         	idParam = TokenId; 
+        }
+        else if(String.isNotBlank(WeChatFollowerId))
+        {
+        	idParam = WeChatFollowerId;    
+        }
+        if(String.isNotBlank(idParam))
+        {
+        	PageReference pageReference = new PageReference('/'+ idParam);
+            pageReference.setRedirect(true);
+            return pageReference;
+        }
+        else
+        {
+        	return null;    
+        }
+    }
+    
+    public PageReference querySurveyQuestions()
+    {
+        String surveyQuestionsSoql = 'select Id, Name, Question__c, Order__c, (select Id, Response__c, SurveyQuestion__c from SurveyQuestionResponses__r) from SurveyQuestion__c where Survey__c = :' + 'queryId';
+        if (String.isNotEmpty(SortField) && isAsc != null) 
+        {
+            surveyQuestionsSoql += ' order by ' + SortField;
+            if (isAsc) 
+            {
+                surveyQuestionsSoql += ' asc';
+            } 
+            else 
+            {
+                surveyQuestionsSoql += ' desc';
+            }
+        }
+        surveyQuestions = Database.query(surveyQuestionsSoql);
+    	return null;    
+    }
+    
+    @RemoteAction
+    @ReadOnly
+    public static void getSurveyTakens()
+    {   
+        String queryString = new SurveyAnswersController2('').queryFieldsMethod(sortField, isAsc);
+        surveyTakens = Database.query(queryString);
+    }
+    
+    public void doRenderProcess()
+    {	
+        if(ArrowDirection == 'arrowup')
+        {
+        	IsAsc = true;    
+        }
+        else
+        {
+        	IsAsc = false;	    
+        }
+        LeadAndAnswers = queryLeadAndAnswers();
+    }
+	
+    public List<Schema.FieldSetMember> getLeadFields()
+    {
+        return SObjectType.Charket__WeChatFollower__c.FieldSets.Survey_Answers.getFields();
+    }
+    
+    private List<WrapperLeadAndAnswers> queryLeadAndAnswers()
+    {
+        getSurveyTakens();
+        List<WrapperResponseAndQuestionId> wrapperResponseAndQuestionIds = new List<WrapperResponseAndQuestionId>();
+        List<WrapperLeadAndAnswers> wrapperLeadAndAnswersList = new List<WrapperLeadAndAnswers>();
+        for(SurveyTaken2__c taken : surveyTakens)
+        {
+            Title = taken.Survey__r.Name;
+            String showQuestionNumber = taken.Name;
+            String takenId = taken.Id;
+            Datetime surveyTakenDate = taken.CreatedDate;
+            Charket__WeChatFollower__c lead = taken.WeChatFollower__r;
+           	String weChatFollowerId = taken.WeChatFollower__r.Id;
+            String weChatFollowerName = taken.WeChatFollower__r.Charket__Lead__r.Name;
+            
+            for(SurveyQuestionResponse__c response : taken.SurveyQuestionResponses__r)
+            {	
+                if(response.Response__c != null)
+                {
+                    wrapperResponseAndQuestionIds.add(new WrapperResponseAndQuestionId(response.Response__c, response.SurveyQuestion__r.Id));
+                }
+            }
+            
+            List<String> showAnswers = new List<String>();
+            for(Integer i = 0; i < surveyQuestions.size(); i++)
+            {
+                showAnswers.add('No_Answer');
+                for(WrapperResponseAndQuestionId responseAndQuestionId : wrapperResponseAndQuestionIds)
+                {
+                    if(responseAndQuestionId.questionId == surveyQuestions[i].Id)
+                    {	
+                        showAnswers[i] = responseAndQuestionId.response + (showAnswers[i] == 'No_Answer' ? '' : ';' + showAnswers[i]);
+                    }
+                }
+            }
+            wrapperLeadAndAnswersList.add(new WrapperLeadAndAnswers(lead, showAnswers, showQuestionNumber, QuestionNumber, surveyTakenDate, takenId , weChatFollowerId , weChatFollowerName));
+            wrapperResponseAndQuestionIds.clear();
+        }
+        if(String.isBlank(SortField))
+        {
+         	wrapperLeadAndAnswersList.sort();   
+        }
+        return wrapperLeadAndAnswersList;
+    }
+    
+    private String queryFieldsMethod(String sortField, Boolean isAsc)
+    {		
+        List<String> fields = new List<String>();
+        String queryFields = '';
+        for(Schema.FieldSetMember field : this.getLeadFields())
+        {
+            queryFields += 'WeChatFollower__r.' + field.getFieldPath() + ', ';
+            fields.add(field.getLabel());
+        }
+        String surveyTakensSoql = 'select Id, Name, CreatedDate, WeChatFollower__c, ' + queryFields + ' WeChatFollower__r.Charket__Lead__r.Name, Survey__r.Name, (select Id, Response__c, SurveyQuestion__r.Question__c from SurveyQuestionResponses__r) ';
+        surveyTakensSoql += ' from SurveyTaken2__c where Survey__c = :' + 'queryId';
+        if(String.isNotEmpty(SortField) && isAsc != null) 
+        {	
+            surveyTakensSoql += ' order by ' + 'WeChatFollower__r.' + sortField;
+            if (isAsc) 
+            {
+                surveyTakensSoql += ' asc';
+            } 
+            else 
+            {
+                surveyTakensSoql += ' desc';
+            }
+        }
+        else if(String.isNotEmpty(DateMark) && isAsc != null)
+        {	
+        	surveyTakensSoql += ' order by ' + 'CreatedDate';
+            if (isAsc) 
+            {
+                surveyTakensSoql += ' asc';
+            } 
+            else 
+            {
+                surveyTakensSoql += ' desc';
+            }
+        }
+        FieldsShow = fields;
+        return surveyTakensSoql;	    
+    }
+    
+    public class WrapperLeadAndAnswers implements Comparable
+    {
+        public Charket__WeChatFollower__c LeadToShow { get; set; }
+        public List<String> Answers { get; set; }
+        public String ShowQuestionNumber { get; set; }
+        public Integer QuestionNum { get; set; }
+        public Datetime SurveyTakenDate { get; set; }
+        public Id TakenId { get; set; }
+        public Id WeChatFollowerId { get; set; }
+        public String WeChatFollowerName { get; set; }
+        
+        public Integer compareTo(Object instance)
+        {
+            WrapperLeadAndAnswers wrapperLeadAndAnswers = (WrapperLeadAndAnswers)instance;
+            if(SurveyAnswersController2.QuestionNumber != -1 && SurveyAnswersController2.QuestionNumber != null)
+            {	
+                if(this.Answers[SurveyAnswersController2.QuestionNumber] == null)
+                {
+                    return 1;    
+                }
+                if(wrapperLeadAndAnswers.Answers[SurveyAnswersController2.QuestionNumber] == null)
+                {
+                    return -1;   
+                }
+                if(this.Answers[SurveyAnswersController2.QuestionNumber] > wrapperLeadAndAnswers.Answers[SurveyAnswersController2.QuestionNumber])
+                {
+                    if(SurveyAnswersController2.IsAsc)
+                    {
+                        return 1;	   
+                    }
+                    else
+                    {
+                        return -1;
+                    }
+                }
+                else
+                {
+                    return SurveyAnswersController2.IsAsc ? -1 : 1;
+                }
+            }            
+            else if(String.isNotBlank(SurveyAnswersController2.SurveyNumber))
+            {
+                if(this.ShowQuestionNumber == null)
+                {
+                    return 1;    
+                }
+                if(wrapperLeadAndAnswers.ShowQuestionNumber == null)
+                {
+                    return -1;   
+                }   
+                if(this.ShowQuestionNumber == wrapperLeadAndAnswers.ShowQuestionNumber)
+                {	
+                    return 0;    
+                }
+                if(this.ShowQuestionNumber > wrapperLeadAndAnswers.ShowQuestionNumber)
+                {	
+                    if(SurveyAnswersController2.IsAsc)
+                    {
+                        return 1;	   
+                    }
+                    else
+                    {
+                        return -1;
+                    }   
+                }
+                else
+                {
+                    if(SurveyAnswersController2.IsAsc)
+                    {
+                        return -1;	   
+                    }
+                    else
+                    {
+                        return 1;
+                    }   
+                } 
+            }
+            else if(String.isNotBlank(SurveyAnswersController2.WeChatFollowerColumn))
+            {	
+                
+            	if(this.WeChatFollowerName == null)
+                {
+                    return 1;    
+                }
+                if(wrapperLeadAndAnswers.WeChatFollowerName == null)
+                {
+                    return -1;   
+                }   
+                if(this.WeChatFollowerName == wrapperLeadAndAnswers.WeChatFollowerName)
+                {	
+                    return 0;    
+                }
+                if(this.WeChatFollowerName > wrapperLeadAndAnswers.WeChatFollowerName)
+                {	
+                    if(SurveyAnswersController2.IsAsc)
+                    {
+                        return 1;	   
+                    }
+                    else
+                    {
+                        return -1;
+                    }   
+                }
+                else
+                {
+                    if(SurveyAnswersController2.IsAsc)
+                    {
+                        return -1;	   
+                    }
+                    else
+                    {
+                        return 1;
+                    }   
+                } 	    
+            }
+            else
+            {
+             	 return -1;   
+            }
+        }
+        
+        WrapperLeadAndAnswers(Charket__WeChatFollower__c leadToShow, List<String> answers, String ShowQuestionNumber, Integer questionNumber, DateTime surveyTakenDate, Id takenId, Id weChatFollowerId, String weChatFollowerName)
+        {
+            this.LeadToShow = leadToShow;
+            this.Answers = answers;
+            this.ShowQuestionNumber = ShowQuestionNumber;
+            this.SurveyTakenDate = surveyTakenDate;
+            this.TakenId = takenId;
+            this.WeChatFollowerId = weChatFollowerId;
+            this.WeChatFollowerName = weChatFollowerName;
+        }
+    }
+    
+    public class WrapperResponseAndQuestionId
+    {
+        private String response;
+        private String questionId;
+        
+        WrapperResponseAndQuestionId(String response, String questionId)
+        {
+            this.response = response;
+            this.questionId = questionId;
+        }
+    }
+}
