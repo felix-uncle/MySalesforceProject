@@ -1,0 +1,436 @@
+<apex:page controller="SurveyAnswersController2" tabStyle="Survey2__c" sidebar="false" readOnly="true" lightningStyleSheets="true" id="page">
+    <html xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" lang="en">
+        <apex:slds />
+        <apex:includeScript value="https://ajax.googleapis.com/ajax/libs/jquery/1.8.2/jquery.min.js" />
+        <style>
+            .displayBG
+            {	
+            width: 100%;
+            height: 100%;
+            display: block;
+            position: fixed;
+            
+            background-color:white;
+            }
+            .slds-scope .slds-spinner 
+            {
+            position: absolute;
+            top: 30%;
+            left: 50%;
+            transform: translate(-50%,-50%) rotate(90deg);
+            background-color:blue;
+            }
+            .slds-scope .slds-spinner:after, .slds-scope .slds-spinner:before, .slds-scope .slds-spinner__dot-a:after, .slds-scope .slds-spinner__dot-a:before, .slds-scope .slds-spinner__dot-b:after, .slds-scope .slds-spinner__dot-b:before 
+            {
+            	background: rgb(0, 112, 210);
+			}
+        </style>
+        <script>
+        
+        var scroll;
+        
+        $(function (){
+            doMoveScroll();
+        });
+        
+        function doMoveScroll()
+        {
+            $('.slds-scrollable').bind('scroll', function (e) {
+                moveScroll(e);
+            });	
+        }
+        
+        $(window).scroll(moveScroll);
+        
+        function moveScroll(e)
+        {	
+            scroll = $(window).scrollTop();
+            console.log('scrollTop' + scroll);
+            var scrollLeft = $('.slds-scrollable').scrollLeft();
+            console.log('scrollLeft' + scrollLeft);
+            scrollTop = $('.slds-scrollable').scrollTop();
+            
+            var anchor_top = $("#maintable").offset().top;
+            var anchor_bottom = $("#bottom_anchor").offset().top;
+            if (scroll > anchor_top && scroll < anchor_bottom)  
+            {	
+                $('#clone .slds-line-height_reset').css('transform', 'translateX(' + (-e.target.scrollLeft) + 'px)');
+                clone_table = $("#clone");
+                if(clone_table.length == 0)
+                {	
+                    //clone_table = $("#maintable").clone();
+                    clone_table = $("#cloneTable").clone();
+                    clone_table.attr('id', 'clone');
+                    clone_table.css({position:'fixed','pointer-events': 'none',top:0});
+                    clone_table.width($("#cloneTable").width());
+                    //$("#table-container").append(clone_table);
+                    $("#cloneDiv").append(clone_table);
+                    $("#clone").css({visibility:'hidden'});
+                    $("#clone thead").css({'visibility':'visible','pointer-events':'auto'});
+                    $("#clone thead").val($(".slds-line-height_reset").width());
+                }
+            }
+            else 
+            {	
+                $("#clone").remove();
+            }
+        }
+        
+        function changePicture(param)
+        {	
+            var sortField = document.getElementById("page:form:sortField");
+            var arrowDirection = document.getElementById("page:form:arrowDirection");
+            var questionNumber = document.getElementById("page:form:questionNumber");
+            var dateMark = document.getElementById("page:form:dateMark");
+            var surveyNumber = document.getElementById("page:form:surveyNumber");
+            var weChatFollower = document.getElementById("page:form:surveyNumber");
+            var weChatFollowerColumn = document.getElementById("page:form:weChatFollowerColumn");
+            if(isNaN(param) && param != 'date' && param != 'survey' && param != 'weChatFollower')
+            {	
+                sortField.value = param;
+                questionNumber.value = -1;
+                dateMark.value = '';
+                surveyNumber.value = '';
+                weChatFollowerColumn.value = '';
+            }
+            else if(param == 'sort')
+            {	
+                sortField.value = '';
+                questionNumber.value = -1;
+                dateMark.value = '';
+                surveyNumber.value = '';
+                weChatFollowerColumn.value = '';
+            }
+            else if(param == 'weChatFollower')
+            {	
+                weChatFollowerColumn.value = param;
+                sortField.value = '';
+                questionNumber.value = -1;
+                dateMark.value = '';
+                surveyNumber.value = '';
+            }
+            else if(param == 'date')
+            {	
+                dateMark.value = param;
+                sortField.value = '';
+                questionNumber.value = -1;
+                surveyNumber.value = '';
+                weChatFollowerColumn.value = '';
+             }
+             else if(param == 'survey')
+             {	
+                 surveyNumber.value = param;
+                 sortField.value = '';
+                 dateMark.value = '';
+                 questionNumber.value = -1;
+                 weChatFollowerColumn.value = '';
+              }
+              else
+              {	
+                  questionNumber.value = param;
+                  sortField.value = '';
+                  dateMark.value = '';
+                  surveyNumber.value = '';
+                  weChatFollowerColumn.value = '';
+              }
+              if(arrowDirection.value == 'arrowup')
+              {
+                  arrowDirection.value = 'arrowdown';
+              }
+              else if(arrowDirection.value == 'arrowdown')
+              {
+                  arrowDirection.value = 'arrowup';	
+              }
+              passValueToController();
+         }
+        
+        function createExcelFormAction()
+        {	
+            createExcelForm();	
+        } 
+        
+        function jumpToTokenOrWechatFollower(currentId)
+        {	
+            var tokenId = document.getElementById("page:form:tokenId");
+            var weChatFollowerId = document.getElementById("page:form:weChatFollowerId");
+            tokenId.value = currentId;
+            weChatFollowerId.value = currentId;
+            tokenOrWechatFollower();
+        }
+        
+        function currentHtmlHeight()
+        {
+            return $('html').height();
+        }
+        
+        function currentTableHeight()
+        {
+            return $('#maintable').height();
+        }
+        
+        var htmlHeight;
+        var tableHeight;
+        
+        function startTheLoading()
+        {	
+            htmlHeight = currentHtmlHeight();
+            tableHeight = currentTableHeight();
+            console.log('htmlHeight:' + htmlHeight);
+            console.log('tableHeight:' + tableHeight);
+            var cuttentHeight;
+            if(scroll*1 > 0 )
+            {
+                cuttentHeight = htmlHeight*1 - tableHeight*1 - scroll*1 - 120*1;	
+            }
+            else
+            {
+                cuttentHeight = htmlHeight*1 - tableHeight*1 - 120*1;	
+            }
+            $(".displayBG").css({'margin-top':cuttentHeight});
+            lockScroll();
+        }
+        
+        function endTheLoading()
+        {
+            unlockScroll();
+        }
+        
+        function lockScroll()
+        {
+            $html = $('html'); 
+            $body = $('body'); 
+            var initWidth = $body.outerWidth();
+            var initHeight = $body.outerHeight();
+            
+            var scrollPosition = [
+                self.pageXOffset || document.documentElement.scrollLeft || document.body.scrollLeft,
+                self.pageYOffset || document.documentElement.scrollTop  || document.body.scrollTop
+            ];
+            $html.data('scroll-position', scrollPosition);
+            $html.data('previous-overflow', $html.css('overflow'));
+            $html.css('overflow', 'hidden');
+            window.scrollTo(scrollPosition[0], scrollPosition[1]);   
+            
+            var marginR = $body.outerWidth()-initWidth;
+            var marginB = $body.outerHeight()-initHeight; 
+            $body.css({'margin-right': marginR,'margin-bottom': marginB});
+        } 
+        
+        function unlockScroll()
+        {
+            $html = $('html');
+            $body = $('body');
+            $html.css('overflow', $html.data('previous-overflow'));
+            var scrollPosition = $html.data('scroll-position');
+            window.scrollTo(scrollPosition[0], scrollPosition[1]);    
+            $body.css({'margin-right': 0, 'margin-bottom': 0});
+        }
+        </script>
+        <apex:actionStatus id="loading" layout="block" onstart="startTheLoading();" onstop="endTheLoading();">        
+            <apex:facet name="start">              
+                <div class="overlayBackground displayBG">
+                    <div class="demo-only" >
+                        <div role="status" class="slds-spinner slds-spinner_medium" >
+                            <span class="slds-assistive-text" >Loading</span>
+                            <div class="slds-spinner__dot-a">
+                            </div>
+                            <div class="slds-spinner__dot-b">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </apex:facet>
+        </apex:actionStatus>
+        <div class="slds-page-header" style="height:80px;">
+            <div class="slds-media">
+                <div class="slds-media__body">
+                    <h1 class="slds-page-header__title slds-truncate slds-align-middle">{!title}</h1>
+                    <p class="slds-text-body_small"><apex:outputText value="{!TotalTakenNumber}"/>&nbsp;items • Created By {!survey.CreatedBy.Name} ,&nbsp;<apex:outputField value="{!survey.CreatedDate}"/>
+                    </p>
+                </div>
+            </div>
+            <span class="slds-button slds-button_neutral"  style="position:absolute;left: 90%;margin-top: -43px;" onclick="createExcelFormAction();">
+                <svg class="slds-button__icon slds-button__icon_left" aria-hidden="true">
+                    <use xlink:href="{!URLFOR($Asset.SLDS, '/assets/icons/utility-sprite/svg/symbols.svg#download')}">
+                    </use>
+                </svg>
+                Export
+            </span>
+        </div>
+        <apex:form id="form">
+            <apex:inputHidden value="{!SortField}" id="sortField"/>
+            <apex:inputHidden value="{!DateMark}" id="dateMark"/>
+            <apex:inputHidden value="{!SurveyNumber}" id="surveyNumber"/>
+            <apex:inputHidden value="{!QuestionNumber}" id="questionNumber"/>
+            <apex:inputHidden value="{!ArrowDirection}" id="arrowDirection"/>
+            <apex:inputHidden value="{!WeChatFollowerColumn}" id="weChatFollowerColumn"/>
+            <apex:inputHidden value="{!TokenId}" id="tokenId"/>
+            <apex:inputHidden value="{!WeChatFollowerId}" id="weChatFollowerId"/>
+            <apex:actionFunction name="passValueToController" action="{!doRenderProcess}" rerender="form" status="loading" oncomplete="doMoveScroll();"/>
+            <apex:actionFunction name="createExcelForm" action="{!createExcelForm}"/>
+            <apex:actionFunction name="tokenOrWechatFollower" action="{!jumpToTakenOrWechatFollowerPage}"/>
+            <div class="slds-scrollable">
+                <div class="slds-text-longform" style="width: 150%;">
+                    <div id="table-container">
+                        <table class="slds-table slds-table_bordered slds-table_resizable-cols slds-table_fixed-layout" role="grid" id="maintable" >
+                            <thead id="formHead">
+                                <tr class="slds-line-height_reset" id="moveTr">
+                                    <th aria-sort="none" class="slds-is-sortable slds-is-resizable slds-text-title_caps" scope="col">
+                                        <a class="slds-th__action slds-text-link_reset" href="javascript:void(0);" role="button" tabindex="-1" onclick="changePicture('survey');">
+                                            <span class="slds-assistive-text">Sort by: </span>
+                                            <span class="slds-truncate" title="Number">Taken Number</span>
+                                            <apex:outputPanel rendered="{!if(ArrowDirection == 'arrowup' && SurveyNumber == 'survey', true, false)}">
+                                                <apex:image url="{!$Resource.arrowup}"/>
+                                            </apex:outputPanel>
+                                            <apex:outputPanel rendered="{!if(ArrowDirection == 'arrowdown' && SurveyNumber == 'survey', true, false)}">
+                                                <apex:image url="{!$Resource.arrowdown}"/>	
+                                            </apex:outputPanel>
+                                        </a>
+                                        <span class="slds-assistive-text" aria-live="assertive" aria-atomic="true">Sorted none</span>
+                                    </th>
+                                    <th aria-sort="none" class="slds-is-sortable slds-is-resizable slds-text-title_caps" scope="col">
+                                        <a class="slds-th__action slds-text-link_reset" href="javascript:void(0);" role="button" tabindex="-1" onclick="changePicture('weChatFollower');">
+                                            <span class="slds-assistive-text">Sort by: </span>
+                                            <span class="slds-truncate" title="Number">WeChat Follower</span>
+                                            <apex:outputPanel rendered="{!if(ArrowDirection == 'arrowup' && WeChatFollowerColumn == 'weChatFollower', true, false)}">
+                                                <apex:image url="{!$Resource.arrowup}"/>
+                                            </apex:outputPanel>
+                                            <apex:outputPanel rendered="{!if(ArrowDirection == 'arrowdown' && WeChatFollowerColumn == 'weChatFollower', true, false)}">
+                                                <apex:image url="{!$Resource.arrowdown}"/>	
+                                            </apex:outputPanel>
+                                        </a>
+                                        <span class="slds-assistive-text" aria-live="assertive" aria-atomic="true">Sorted none</span>
+                                    </th>
+                                    <apex:variable value="{!-2}" var="RowNum"/>
+                                    <apex:repeat value="{!surveyQuestions}" var="question">
+                                        <th aria-sort="none" class="slds-is-sortable slds-is-resizable slds-text-title_caps" scope="col">
+                                            <apex:variable var="RowNum" value="{!RowNum + 1}"/>
+                                            <a class="slds-th__action slds-text-link_reset" href="javascript:void(0);" role="button" tabindex="-1"  onclick="changePicture('{!RowNum + 1}');">
+                                                <span class="slds-assistive-text">Sort by: </span>
+                                                <span class="slds-truncate" title="{!question.Question__c}">{!question.Question__c}</span>
+                                                <apex:outputPanel rendered="{!if(ArrowDirection == 'arrowup' && QuestionNumber == (RowNum + 1), true, false)}">
+                                                    <apex:image url="{!$Resource.arrowup}"/>
+                                                </apex:outputPanel>
+                                                <apex:outputPanel rendered="{!if(ArrowDirection == 'arrowdown' && QuestionNumber == (RowNum + 1), true, false)}">
+                                                    <apex:image url="{!$Resource.arrowdown}"/>	
+                                                </apex:outputPanel>
+                                            </a>
+                                        </th>
+                                    </apex:repeat>
+                                    <apex:repeat value="{!$ObjectType.Charket__WeChatFollower__c.FieldSets.Survey_Answers}" var="surveyAnswer">
+                                        <th aria-sort="none" class="slds-is-sortable slds-is-resizable slds-text-title_caps" scope="col">
+                                            <a class="slds-th__action slds-text-link_reset" href="javascript:void(0);" role="button" tabindex="-1" onclick="changePicture('{!surveyAnswer}');">
+                                                <span class="slds-assistive-text">Sort by: </span>
+                                                <span class="slds-truncate" title="{!surveyAnswer}">{!surveyAnswer.Label}</span>
+                                                <apex:outputPanel rendered="{!if(ArrowDirection == 'arrowup' && SortField == surveyAnswer, true, false)}">
+                                                    <apex:image url="{!$Resource.arrowup}"/>
+                                                </apex:outputPanel>
+                                                <apex:outputPanel rendered="{!if(ArrowDirection == 'arrowdown' && SortField == surveyAnswer, true, false)}">
+                                                    <apex:image url="{!$Resource.arrowdown}"/>	
+                                                </apex:outputPanel>
+                                            </a>
+                                            <span class="slds-assistive-text" aria-live="assertive" aria-atomic="true">Sorted none</span>
+                                        </th>
+                                    </apex:repeat>
+                                    <th aria-sort="none" class="slds-is-sortable slds-is-resizable slds-text-title_caps" scope="col">
+                                        <a class="slds-th__action slds-text-link_reset" href="javascript:void(0);" role="button" tabindex="-1" onclick="changePicture('date');">
+                                            <span class="slds-assistive-text">Sort by: </span>
+                                            <span class="slds-truncate" title="Order">Create Date</span>
+                                            <apex:outputPanel rendered="{!if(ArrowDirection == 'arrowup' && DateMark == 'date', true, false)}">
+                                                <apex:image url="{!$Resource.arrowup}"/>
+                                            </apex:outputPanel>
+                                            <apex:outputPanel rendered="{!if(ArrowDirection == 'arrowdown' && DateMark == 'date', true, false)}">
+                                                <apex:image url="{!$Resource.arrowdown}"/>	
+                                            </apex:outputPanel>
+                                        </a>
+                                        <span class="slds-assistive-text" aria-live="assertive" aria-atomic="true">Sorted none</span>
+                                    </th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <apex:repeat value="{!LeadAndAnswers}" var="wrapperOne" >
+                                    <apex:repeat value="{!wrapperOne}" var="wrapper" >
+                                        <tr class="slds-hint-parent">
+                                            <!--
+                                            <td>
+                                                <div class="slds-truncate"><a href="javascript:void(0);" onclick="jumpToTokenOrWechatFollower('{!wrapper.TakenId}')"  target="_blank">{!wrapper.ShowQuestionNumber}</a></div>
+                                            </td>
+											-->
+                                            <td>
+                                                <div class="slds-truncate"><a href="https://ge-charket-demo--dev2.cs19.my.salesforce.com/{!wrapper.TakenId}" target="_blank">{!wrapper.ShowQuestionNumber}</a></div>
+                                            </td>
+											<!--
+                                            <td>
+                                                <div class="slds-truncate"><a href="javascript:void(0);" onclick="jumpToTokenOrWechatFollower('{!wrapper.WeChatFollowerId}')"  target="_blank">{!wrapper.WeChatFollowerName}</a></div>
+                                            </td>
+											-->
+                                            <td>
+                                                <div class="slds-truncate"><a href="https://ge-charket-demo--dev2.cs19.my.salesforce.com/{!wrapper.WeChatFollowerId}" target="_blank">{!wrapper.WeChatFollowerName}</a></div>
+                                            </td>
+                                            <apex:repeat value="{!wrapper.Answers}" var="answer" >
+                                                <td>
+                                                    <div class="slds-truncate">{!if(answer == 'No_Answer', '', answer)}</div>
+                                                </td>
+                                            </apex:repeat>
+                                            <apex:repeat value="{!$ObjectType.Charket__WeChatFollower__c.FieldSets.Survey_Answers}" var="field" >
+                                                <td>
+                                                    <div class="slds-truncate">{!wrapper.LeadToShow[field]}</div>
+                                                </td>
+                                            </apex:repeat>
+                                            <td>
+                                                <div class="slds-truncate">{!wrapper.surveyTakenDate}</div>
+                                            </td>
+                                        </tr>
+                                    </apex:repeat>
+                                </apex:repeat>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div id="bottom_anchor"></div>
+                    <div id="cloneDiv">
+                        <table class="slds-table slds-table_bordered slds-table_resizable-cols slds-table_fixed-layout" role="grid" id="cloneTable" style="visibility: hidden;">
+                            <thead id="formHead">
+                                <tr class="slds-line-height_reset" id="moveTr">
+                                    <th aria-sort="none" class="slds-is-sortable slds-is-resizable slds-text-title_caps" scope="col">
+                                        <a class="slds-th__action slds-text-link_reset" href="#" role="button" tabindex="-1">
+                                            <span class="slds-truncate" title="Number">Taken Number</span>
+                                        </a>
+                                    </th>
+                                    <th aria-sort="none" class="slds-is-sortable slds-is-resizable slds-text-title_caps" scope="col">
+                                        <a class="slds-th__action slds-text-link_reset" href="#" role="button" tabindex="-1">
+                                            <span class="slds-truncate" title="Number">WeChat Follower</span>
+                                        </a>
+                                    </th>
+                                    <apex:repeat value="{!surveyQuestions}" var="question">
+                                        <th aria-sort="none" class="slds-is-sortable slds-is-resizable slds-text-title_caps" scope="col">
+                                            <a class="slds-th__action slds-text-link_reset" href="#" role="button" tabindex="-1">
+                                                <span class="slds-assistive-text">Sort by: </span>
+                                                <span class="slds-truncate" title="{!question.Question__c}">{!question.Question__c}</span>
+                                            </a>
+                                        </th>
+                                    </apex:repeat>
+                                    <apex:repeat value="{!$ObjectType.Charket__WeChatFollower__c.FieldSets.Survey_Answers}" var="surveyAnswer">
+                                        <th aria-sort="none" class="slds-is-sortable slds-is-resizable slds-text-title_caps" scope="col">
+                                            <a class="slds-th__action slds-text-link_reset" href="#" role="button" tabindex="-1">
+                                                <span class="slds-assistive-text">Sort by: </span>
+                                                <span class="slds-truncate" title="{!surveyAnswer}">{!surveyAnswer.Label}</span>
+                                            </a>
+                                            <span class="slds-assistive-text" aria-live="assertive" aria-atomic="true">Sorted none</span>
+                                        </th>
+                                    </apex:repeat>
+                                    <th aria-sort="none" class="slds-is-sortable slds-is-resizable slds-text-title_caps" scope="col">
+                                        <a class="slds-th__action slds-text-link_reset" href="#" role="button" tabindex="-1">
+                                            <span class="slds-assistive-text">Sort by: </span>
+                                            <span class="slds-truncate" title="Order">Create Date</span>
+                                        </a>
+                                        <span class="slds-assistive-text" aria-live="assertive" aria-atomic="true">Sorted none</span>
+                                    </th>
+                                </tr>
+                            </thead>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </apex:form>
+    </html>
+</apex:page>
